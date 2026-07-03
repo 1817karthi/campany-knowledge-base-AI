@@ -1,0 +1,6 @@
+node_modules/
+uploads/
+vectorstore/
+.env
+*.log
+dist/
