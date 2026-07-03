@@ -38,6 +38,14 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Company Knowledge Base API is running' });
 });
 
+// Serve frontend in production
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../frontend/dist')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  });
+}
+
 app.listen(PORT, () => {
   console.log(`\n🚀 Server running on http://localhost:${PORT}`);
   console.log(`📚 Company Knowledge Base API ready\n`);
