@@ -20,7 +20,7 @@ const formatDate = (iso) => {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 };
 
-export default function Sidebar({ documents, onDocumentUploaded, onDocumentDeleted, onSuggestionClick, stats }) {
+export default function Sidebar({ documents, onDocumentUploaded, onDocumentDeleted, onSuggestionClick, stats, user, onLogout }) {
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
 
@@ -152,6 +152,22 @@ export default function Sidebar({ documents, onDocumentUploaded, onDocumentDelet
           </button>
         ))}
       </div>
+
+      {/* User Profile Footer */}
+      {user && (
+        <div className="sidebar-profile">
+          <div className="profile-avatar">
+            {user.username ? user.username.charAt(0).toUpperCase() : 'U'}
+          </div>
+          <div className="profile-info">
+            <p className="profile-name" title={user.username}>{user.username}</p>
+            <p className="profile-email" title={user.email}>{user.email}</p>
+          </div>
+          <button className="profile-logout" onClick={onLogout} title="Sign Out" id="sidebar-logout-button">
+            🚪
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

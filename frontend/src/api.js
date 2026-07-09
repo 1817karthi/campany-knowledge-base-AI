@@ -5,6 +5,29 @@ const api = axios.create({
   timeout: 120000, // 2 min for large doc processing
 });
 
+// Attach JWT token from localStorage to every request
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+export const registerUser = (userData) =>
+  api.post('/auth/register', userData);
+
+export const loginUser = (credentials) =>
+  api.post('/auth/login', credentials);
+
+export const getMe = () =>
+  api.get('/auth/me');
+
 export const uploadDocument = (file, onProgress) => {
   const formData = new FormData();
   formData.append('document', file);
@@ -29,3 +52,4 @@ export const deleteDocument = (fileName) =>
 
 export const checkHealth = () =>
   api.get('/health');
+

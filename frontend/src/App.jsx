@@ -3,7 +3,8 @@ import Sidebar from './components/Sidebar';
 import ChatWindow from './components/ChatWindow';
 import ChatInput from './components/ChatInput';
 import { ToastContainer } from './components/Toast';
-import { sendMessage, fetchDocuments, deleteDocument } from './api';
+import Auth from './components/Auth';
+import { sendMessage, fetchDocuments, deleteDocument, getMe } from './api';
 import './index.css';
 
 let messageIdCounter = 0;
@@ -13,29 +14,14 @@ let toastIdCounter = 0;
 const newToastId = () => `toast-${++toastIdCounter}`;
 
 export default function App() {
+  const [user, setUser] = useState(null);
+  const [isAuthenticating, setIsAuthenticating] = useState(true);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [stats, setStats] = useState(null);
   const [toasts, setToasts] = useState([]);
   const chatEndRef = useRef(null);
-
-  // Auto-scroll to bottom
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isLoading]);
-
-  // Load existing documents on mount
-  useEffect(() => {
-    fetchDocuments()
-      .then((res) => {
-        setDocuments(res.data.documents || []);
-        setStats(res.data.stats);
-      })
-      .catch(() => {
-        addToast('Could not connect to the backend. Is the server running?', 'error');
-      });
-  }, []);
 
   const addToast = useCallback((message, type = 'info') => {
     const id = newToastId();
@@ -45,6 +31,60 @@ export default function App() {
   const removeToast = useCallback((id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   }, []);
+
+  // Check session on mount
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setIsAuthenticating(false);
+      return;
+    }
+
+    getMe()
+      .then((res) => {
+        setUser(res.data);
+      })
+      .catch((err) => {
+        console.error('Session check failed:', err);
+        localStorage.removeItem('token');
+        addToast('Session expired. Please sign in again.', 'info');
+      })
+      .finally(() => {
+        setIsAuthenticating(false);
+      });
+  }, [addToast]);
+
+  // Load existing documents when authenticated
+  useEffect(() => {
+    if (!user) return;
+    fetchDocuments()
+      .then((res) => {
+        setDocuments(res.data.documents || []);
+        setStats(res.data.stats);
+      })
+      .catch(() => {
+        addToast('Could not retrieve documents. Is the backend server running?', 'error');
+      });
+  }, [user, addToast]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
+
+  const handleAuthSuccess = useCallback((userData, token) => {
+    localStorage.setItem('token', token);
+    setUser(userData);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('token');
+    setUser(null);
+    setMessages([]);
+    setDocuments([]);
+    setStats(null);
+    addToast('Logged out successfully.', 'info');
+  }, [addToast]);
 
   const handleDocumentUploaded = useCallback((data) => {
     addToast(`✅ "${data.originalName}" indexed with ${data.chunksIndexed} chunks!`, 'success');
@@ -110,12 +150,35 @@ export default function App() {
     handleSend(text);
   }, [handleSend]);
 
+  // Loading Screen while authenticating on boot
+  if (isAuthenticating) {
+    return (
+      <div className="auth-loading-screen">
+        <div className="auth-loading-spinner"></div>
+        <p>Verifying session...</p>
+      </div>
+    );
+  }
+
+  // Not authenticated
+  if (!user) {
+    return (
+      <div className="app-layout auth-layout">
+        <Auth onAuthSuccess={handleAuthSuccess} addToast={addToast} />
+        <ToastContainer toasts={toasts} removeToast={removeToast} />
+      </div>
+    );
+  }
+
+  // Authenticated Dashboard
   return (
     <div className="app-layout">
       {/* Sidebar */}
       <Sidebar
         documents={documents}
         stats={stats}
+        user={user}
+        onLogout={handleLogout}
         onDocumentUploaded={handleDocumentUploaded}
         onDocumentDeleted={handleDocumentDeleted}
         onSuggestionClick={handleSuggestionClick}
@@ -162,3 +225,4 @@ export default function App() {
     </div>
   );
 }
+
